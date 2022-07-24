@@ -35,7 +35,7 @@ for await (let message of socket.iter()) {
   processMessage(message);
 }
 
-let { done, value: message } = await socket.iter();
+let { done, value: message } = await socket.iter().next();
 ```
 
 If the connection is closed while waiting for a message, the corresponding promise will be resolved and the iterator will end gracefully if the connection closed cleanly, otherwise the promise will reject in the same circumstances as `socket.closed`. The promise is never fulfilled if the connection could not be established.
@@ -59,10 +59,6 @@ socket.closed.then(() => { ... });
 
 When the connection closes, `socket.closed` will be resolved if the connection [closed cleanly](https://datatracker.ietf.org/doc/html/rfc6455#section-7.1.4), and will be rejected otherwise. The code and reason invoked can be obtained from the resolved object or rejected error, respectively.
 
-If the connection to the server cannot be established or if the socket is closed (i.e. with `socket.close()`) before the connection can be established, `socket.ready` will be rejected in the same circumstances as would otherwise be `socket.closed`, and the latter will instead remain unfulfilled.
-
-The absence of listeners on these promises will lead to uncaught rejection errors when they are rejected.
-
 ```js
 socket.closed.then((result) => {
   result.code
@@ -73,6 +69,10 @@ socket.closed.then((result) => {
 });
 ```
 
+If the connection to the server cannot be established or if the socket is closed (i.e. with `socket.close()`) before the connection can be established, `socket.ready` will be rejected in the same circumstances as would otherwise be `socket.closed`, and the latter will instead remain unfulfilled.
+
+The absence of listeners on these promises will lead to uncaught rejection errors when they are rejected.
+
 ### Closing the connection
 
 Unlike its standard counterpart, `socket.close()` is asynchronous as it awaits `socket.closed`, and will be rejected in the same conditions as `socket.closed`. Calling `socket.close()` multiple times or when the connection is already closed is a no-op.
@@ -81,7 +81,7 @@ When aborting the signal provided to the constructor, the socket will be closed 
 
 ```js
 await socket.close();
-await socket.close(...);
+await socket.close(code, reason);
 
 // or
 
@@ -106,13 +106,13 @@ await socket.listen(async (conn) => {
 
   }
 
-  let { done, value } = await conn.next();
+  let { done, value } = await conn.iter().next();
 });
 ```
 
 ### Closing the connection when the page closes
 
-It is good practice to close the connection when the page enters the frozen (through the `freeze` event) or `terminated` (through the `pagehide` event) states as defined by the [Page Lifecycle API](https://developer.chrome.com/blog/page-lifecycle-api/) in order to [avoid blocking the back/forward cache](https://web.dev/bfcache/#always-close-open-connections-before-the-user-navigates-away).
+It is good practice to close the connection when the page enters the frozen (through the `freeze` event) or terminated (through the `pagehide` event) states as defined by the [Page Lifecycle API](https://developer.chrome.com/blog/page-lifecycle-api/) in order to [avoid blocking the back/forward cache](https://web.dev/bfcache/#always-close-open-connections-before-the-user-navigates-away).
 
 ```js
 let socket;
@@ -126,10 +126,10 @@ window.addEventListener('pageshow', () => {
 window.addEventListener('freeze', () => {
   // Note that the 'socket.ready' promise will be rejected if the connection
   // had not been established yet.
-  socket.close();
+  socket?.close();
 });
 
 window.addEventListener('pagehide', () => {
-  socket.close();
+  socket?.close();
 });
 ```
